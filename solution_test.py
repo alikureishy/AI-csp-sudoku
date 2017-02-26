@@ -1,5 +1,6 @@
 import solution
 import unittest
+from sudoku import Sudoku
 
 
 class TestNakedTwins(unittest.TestCase):
@@ -72,6 +73,7 @@ class TestNakedTwins(unittest.TestCase):
                         "Your naked_twins function produced an unexpected board.")
 
     def test_naked_twins2(self):
+        game = Sudoku(self.before_naked_twins_2, ['Row', 'Column', 'Square', 'Diagonal'], False)
         self.assertTrue(solution.naked_twins(self.before_naked_twins_2) in self.possible_solutions_2,
                         "Your naked_twins function produced an unexpected board.")
 
@@ -92,7 +94,8 @@ class TestDiagonalSudoku(unittest.TestCase):
                           'D1': '5'}
 
     def test_solve(self):
-        self.assertEqual(solution.solve(self.diagonal_grid), self.solved_diag_sudoku)
+        game = Sudoku.fromString(TestDiagonalSudoku.diagonal_grid)
+        self.assertEqual(game.solve(), self.solved_diag_sudoku)
 
 if __name__ == '__main__':
     unittest.main()
