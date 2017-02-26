@@ -11,16 +11,16 @@ class Sudoku(object):
     digits = '123456789'
 
     @staticmethod
-    def fromString(inputstring, verbose=False):
+    def fromString(inputstring, callback=None, verbose=False):
         boxes, units, unitmap, peermap = Sudoku.__get_configuration__()
         valuemap = Sudoku.__extract_grid__(inputstring, boxes)
-        sudoku = Sudoku(valuemap, boxes, units, unitmap, peermap, verbose=verbose)
+        sudoku = Sudoku(valuemap, boxes, units, unitmap, peermap, verbose=verbose, callback=callback)
         return sudoku
     
     @staticmethod
-    def fromValueMap(valuemap, verbose=False):
+    def fromValueMap(valuemap, callback=None, verbose=False):
         boxes, units, unitmap, peermap = Sudoku.__get_configuration__()
-        sudoku = Sudoku(valuemap, boxes, units, unitmap, peermap, verbose=verbose)
+        sudoku = Sudoku(valuemap, boxes, units, unitmap, peermap, verbose=verbose, callback=callback)
         return sudoku
 
     @staticmethod
@@ -53,7 +53,7 @@ class Sudoku(object):
     '''
     classdocs
     '''
-    def __init__(self, valuemap, boxes, units, unitmap, peermap, verbose=False):
+    def __init__(self, valuemap, boxes, units, unitmap, peermap, verbose=False, callback=None):
         '''
         Constructor
         '''
@@ -63,6 +63,7 @@ class Sudoku(object):
         self.__unitmap__ = unitmap
         self.__peermap__ = peermap
         self.__verbose__ = verbose
+        self.__callback__ = callback
         
     def display(self):
         Sudoku.__print__(self.__valuemap__, self.__boxes__)
@@ -70,7 +71,7 @@ class Sudoku(object):
     def solve(self, callback=None):
         print ("Solving...")
         valuemap = self.__valuemap__.copy()
-        result = Sudoku.__search__(valuemap, self.__boxes__, self.__peermap__, self.__units__, self.__verbose__, callback=callback)
+        result = self.__search__(valuemap)
         if result:
             self.__valuemap__ = result
         else:
@@ -92,12 +93,11 @@ class Sudoku(object):
             if r in 'CF': print(line)
         return
 
-    @staticmethod
-    def __assign__(valuemap, box, value, callback=None):
+    def __assign__(self, valuemap, box, value):
         if not valuemap[box] == value:
             valuemap[box] = value
-            if callback:
-                callback(valuemap)
+            if self.__callback__:
+                self.__callback__(valuemap)
         
     @staticmethod
     def __cross__(a, b):
@@ -121,36 +121,35 @@ class Sudoku(object):
                 chars.append(digits)
         return dict(zip(boxes, chars))
 
-    @staticmethod
-    def __eliminate__(valuemap, peermap, callback=None):
+    def __eliminate__(self, valuemap):
         """
         Go through all the boxes, and whenever there is a box with a value, eliminate this value from the valuemap of all its peermap.
         Input: A sudoku in dictionary form.
         Output: The resulting sudoku in dictionary form.
         """
+        peermap = self.__peermap__
         solved_valuemap = [box for box in valuemap.keys() if len(valuemap[box]) == 1]
         for box in solved_valuemap:
             digit = valuemap[box]
             for peer in peermap[box]:
-                Sudoku.__assign__(valuemap, peer, valuemap[peer].replace(digit,''), callback)
+                self.__assign__(valuemap, peer, valuemap[peer].replace(digit,''))
         return valuemap
 
-    @staticmethod
-    def __only_choice__(valuemap, units, callback=None):
+    def __only_choice__(self, valuemap):
         """
         Go through all the units, and whenever there is a unit with a value that only fits in one box, assign the value to this box.
         Input: A sudoku in dictionary form.
         Output: The resulting sudoku in dictionary form.
         """
+        units = self.__units__
         for unit in units:
             for digit in Sudoku.digits:
                 dplaces = [box for box in unit if digit in valuemap[box]]
                 if len(dplaces) == 1:
-                    Sudoku.__assign__(valuemap, dplaces[0], digit, callback)
+                    self.__assign__(valuemap, dplaces[0], digit)
         return valuemap
 
-    @staticmethod
-    def __naked_twins__(valuemap, units, callback=None):
+    def __naked_twins__(self, valuemap):
         """
         Go through all the units, and whenever there is a unit with 2 boxes possessing the same 2-digit possibilities, remove those
         2 digits from the remaining boxes in that unit. This is an optimization that reduces the branching factor of the subsequent
@@ -158,6 +157,7 @@ class Sudoku(object):
         Input: A sudoku in dictionary form.
         Output: The resulting sudoku in dictionary form.
         """
+        units = self.__units__
         for unit in units:
             tuples = [box for box in unit if len(valuemap[box])==2]
             if len(tuples) > 1:
@@ -168,11 +168,10 @@ class Sudoku(object):
                     peerlist = [box for box in unit if box not in twins]
                     for peer in peerlist:
                         for digit in digits:
-                            Sudoku.__assign__(valuemap, peer, valuemap[peer].replace(digit, ''), callback)
+                            self.__assign__(valuemap, peer, valuemap[peer].replace(digit, ''))
         return valuemap
 
-    @staticmethod
-    def __constraint_propagation__(valuemap, peermap, units, verbose, callback=None):
+    def __constraint_propagation__(self, valuemap):
         """
         Iterate eliminate() and only_choice(). If at some point, there is a box with no available valuemap, return False.
         If the sudoku is solved, return the sudoku.
@@ -184,11 +183,11 @@ class Sudoku(object):
         stalled = False
         while not stalled:
             solved_valuemap_before = len([box for box in valuemap.keys() if len(valuemap[box]) == 1])
-            valuemap = Sudoku.__eliminate__(valuemap, peermap, callback=callback)
+            valuemap = self.__eliminate__(valuemap)
 
             # Invoke pruning strategies:
-            valuemap = Sudoku.__only_choice__(valuemap, units, callback=callback)
-            valuemap = Sudoku.__naked_twins__(valuemap, units, callback=callback)
+            valuemap = self.__only_choice__(valuemap)
+            valuemap = self.__naked_twins__(valuemap)
             
             solved_valuemap_after = len([box for box in valuemap.keys() if len(valuemap[box]) == 1])
             stalled = solved_valuemap_before == solved_valuemap_after
@@ -196,15 +195,15 @@ class Sudoku(object):
                 return False
         return valuemap
 
-    @staticmethod
-    def __search__(valuemap, boxes, peermap, units, verbose, callback=None):
+    def __search__(self, valuemap):
         "Using depth-first search and propagation, try all possible valuemap."
+        boxes = self.__boxes__
         # First, reduce the puzzle using the previous function
-        valuemap = Sudoku.__constraint_propagation__(valuemap, peermap, units, verbose, callback=callback)
+        valuemap = self.__constraint_propagation__(valuemap)
         if valuemap is False:
             return False ## Failed earlier
         
-        if verbose:
+        if self.__verbose__:
             print ("Propagated constraints to get reduced Sudoku:")
             Sudoku.__print__(valuemap, boxes)
         
@@ -219,10 +218,10 @@ class Sudoku(object):
 #         oldvalue = valuemap[s]
         for value in valuemap[s]:
             new_sudoku = valuemap.copy()
-            Sudoku.__assign__(new_sudoku, s, value, callback)
-            if verbose:
+            self.__assign__(new_sudoku, s, value)
+            if self.__verbose__:
                 print ("Trying with {} = {}".format(s, value))
-            attempt = Sudoku.__search__(new_sudoku, boxes, peermap, units, verbose, callback=callback)
+            attempt = self.__search__(new_sudoku)
             if attempt:
                 return attempt
 #         valuemap[s] = oldvalue

@@ -1,4 +1,3 @@
-import solution
 import unittest
 from sudoku import Sudoku
 
@@ -69,12 +68,13 @@ class TestNakedTwins(unittest.TestCase):
     ]
 
     def test_naked_twins(self):
-        self.assertTrue(solution.naked_twins(self.before_naked_twins_1) in self.possible_solutions_1,
+        game = Sudoku.fromValueMap(self.before_naked_twins_1)
+        self.assertTrue(game.__naked_twins__(self.before_naked_twins_1) in self.possible_solutions_1,
                         "Your naked_twins function produced an unexpected board.")
 
     def test_naked_twins2(self):
-        game = Sudoku(self.before_naked_twins_2, ['Row', 'Column', 'Square', 'Diagonal'], False)
-        self.assertTrue(solution.naked_twins(self.before_naked_twins_2) in self.possible_solutions_2,
+        game = Sudoku.fromValueMap(self.before_naked_twins_2)
+        self.assertTrue(game.__naked_twins__(self.before_naked_twins_2) in self.possible_solutions_2,
                         "Your naked_twins function produced an unexpected board.")
 
 

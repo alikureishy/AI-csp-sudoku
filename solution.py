@@ -12,9 +12,9 @@ if __name__ == '__main__':
     diag_sudoku_grid = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
     verbose = False
     units = ['Row', 'Column', 'Square', 'Diagonal']
-    game = Sudoku.fromString(diag_sudoku_grid)
+    game = Sudoku.fromString(diag_sudoku_grid, callback=assign_value)
     game.display()
-    game.solve(callback=assign_value)
+    game.solve()
     game.display()
     
     print ("Completed in {} assignments".format(counter)) 
