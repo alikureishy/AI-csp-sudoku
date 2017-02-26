@@ -55,8 +55,7 @@ class Sudoku(object):
             Sudoku.__display__(result, self.__boxes__)
         else:
             print ("Could not find solution :(")
-            
-        return callback
+        return result
             
     @staticmethod  
     def __display__(values, boxes):
