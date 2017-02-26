@@ -3,6 +3,7 @@ Created on Feb 25, 2017
 
 @author: safdar
 '''
+from itertools import combinations_with_replacement
 
 class Sudoku(object):
     rows = 'ABCDEFGHI'
@@ -45,15 +46,17 @@ class Sudoku(object):
         print ("Constructed sudoku (Possibilities):")
         Sudoku.__display__(self.__values__, self.__boxes__)
         
-    def solve(self):
+    def solve(self, callback=None):
         print ("Solving...")
         values = self.__values__.copy()
-        result = Sudoku.__search__(values, self.__boxes__, self.__peers__, self.__unitlist__, self.__verbose__)
+        result = Sudoku.__search__(values, self.__boxes__, self.__peers__, self.__unitlist__, self.__verbose__, callback=callback)
         if result:
             print ("SOLVED! Sudoku is:")
             Sudoku.__display__(result, self.__boxes__)
         else:
             print ("Could not find solution :(")
+            
+        return callback
             
     @staticmethod  
     def __display__(values, boxes):
@@ -70,6 +73,13 @@ class Sudoku(object):
             if r in 'CF': print(line)
         return
 
+    @staticmethod
+    def __assign__(values, box, value, callback=None):
+        if not values[box] == value:
+            values[box] = value
+            if callback:
+                callback(values)
+        
     @staticmethod
     def __cross__(a, b):
         return [s+t for s in a for t in b]
@@ -96,7 +106,7 @@ class Sudoku(object):
         return dict(zip(boxes, raw)), dict(zip(boxes, chars))
 
     @staticmethod
-    def __eliminate__(values, peers):
+    def __eliminate__(values, peers, callback=None):
         """
         Go through all the boxes, and whenever there is a box with a value, eliminate this value from the values of all its peers.
         Input: A sudoku in dictionary form.
@@ -106,11 +116,11 @@ class Sudoku(object):
         for box in solved_values:
             digit = values[box]
             for peer in peers[box]:
-                values[peer] = values[peer].replace(digit,'')
+                Sudoku.__assign__(values, peer, values[peer].replace(digit,''), callback)
         return values
 
     @staticmethod
-    def __only_choice__(values, unitlist):
+    def __only_choice__(values, unitlist, callback=None):
         """
         Go through all the units, and whenever there is a unit with a value that only fits in one box, assign the value to this box.
         Input: A sudoku in dictionary form.
@@ -120,11 +130,33 @@ class Sudoku(object):
             for digit in Sudoku.digits:
                 dplaces = [box for box in unit if digit in values[box]]
                 if len(dplaces) == 1:
-                    values[dplaces[0]] = digit
+                    Sudoku.__assign__(values, dplaces[0], digit, callback)
         return values
 
     @staticmethod
-    def __constraint_propagation__(values, peers, unitlist, verbose):
+    def __naked_twins__(values, unitlist, callback=None):
+        """
+        Go through all the units, and whenever there is a unit with 2 boxes possessing the same 2-digit possibilities, remove those
+        2 digits from the remaining boxes in that unit. This is an optimization that reduces the branching factor of the subsequent
+        search operation.
+        Input: A sudoku in dictionary form.
+        Output: The resulting sudoku in dictionary form.
+        """
+        for unit in unitlist:
+            tuples = [box for box in unit if len(values[box])==2]
+            if len(tuples) > 1:
+                combinations = combinations_with_replacement(tuples, 2)
+                nakedtwins = [[s,t] for [s,t] in combinations if not s == t and values[s] == values[t]]
+                for twins in nakedtwins:
+                    digits = values[twins[0]] # Get the 2-digit string
+                    peers = [box for box in unit if box not in twins]
+                    for peer in peers:
+                        for digit in digits:
+                            Sudoku.__assign__(values, peer, values[peer].replace(digit, ''), callback)
+        return values
+
+    @staticmethod
+    def __constraint_propagation__(values, peers, unitlist, verbose, callback=None):
         """
         Iterate eliminate() and only_choice(). If at some point, there is a box with no available values, return False.
         If the sudoku is solved, return the sudoku.
@@ -136,8 +168,12 @@ class Sudoku(object):
         stalled = False
         while not stalled:
             solved_values_before = len([box for box in values.keys() if len(values[box]) == 1])
-            values = Sudoku.__eliminate__(values, peers)
-            values = Sudoku.__only_choice__(values, unitlist)
+            values = Sudoku.__eliminate__(values, peers, callback=callback)
+
+            # Invoke pruning strategies:
+            values = Sudoku.__only_choice__(values, unitlist, callback=callback)
+            values = Sudoku.__naked_twins__(values, unitlist, callback=callback)
+            
             solved_values_after = len([box for box in values.keys() if len(values[box]) == 1])
             stalled = solved_values_before == solved_values_after
             if len([box for box in values.keys() if len(values[box]) == 0]):
@@ -145,10 +181,10 @@ class Sudoku(object):
         return values
 
     @staticmethod
-    def __search__(values, boxes, peers, unitlist, verbose):
+    def __search__(values, boxes, peers, unitlist, verbose, callback=None):
         "Using depth-first search and propagation, try all possible values."
         # First, reduce the puzzle using the previous function
-        values = Sudoku.__constraint_propagation__(values, peers, unitlist, verbose)
+        values = Sudoku.__constraint_propagation__(values, peers, unitlist, verbose, callback=callback)
         if values is False:
             return False ## Failed earlier
         
@@ -167,10 +203,10 @@ class Sudoku(object):
 #         oldvalue = values[s]
         for value in values[s]:
             new_sudoku = values.copy()
-            new_sudoku[s] = value
+            Sudoku.__assign__(new_sudoku, s, value, callback)
             if verbose:
-                print ("Setting {} = {}".format(s, value))
-            attempt = Sudoku.__search__(new_sudoku, boxes, peers, unitlist, verbose)
+                print ("Trying with {} = {}".format(s, value))
+            attempt = Sudoku.__search__(new_sudoku, boxes, peers, unitlist, verbose, callback=callback)
             if attempt:
                 return attempt
 #         values[s] = oldvalue
