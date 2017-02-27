@@ -6,12 +6,23 @@ Created on Feb 25, 2017
 from itertools import combinations_with_replacement
 
 class Sudoku(object):
+    '''
+    The Sudoku game class that holds state and provides methods to
+    solve the game.
+    '''
+    
+    # Consants
     rows = 'ABCDEFGHI'
     cols = '123456789'
     digits = '123456789'
 
     @staticmethod
     def fromString(inputstring, callback=None, verbose=False):
+        """
+        Factory method to create a Sudoku instance
+        Input: Raw string holding the sudoku puzzle
+        Output: Sudoku instance representing that string
+        """
         boxes, units, unitmap, peermap = Sudoku.__get_configuration__()
         valuemap = Sudoku.__extract_grid__(inputstring, boxes)
         sudoku = Sudoku(valuemap, boxes, units, unitmap, peermap, verbose=verbose, callback=callback)
@@ -19,6 +30,11 @@ class Sudoku(object):
     
     @staticmethod
     def fromValueMap(valuemap, callback=None, verbose=False):
+        """
+        Factory method to create a Sudoku instance
+        Input: Value map holding the sudoku puzzle
+        Output: Sudoku instance representing that value map
+        """
         boxes, units, unitmap, peermap = Sudoku.__get_configuration__()
         sudoku = Sudoku(valuemap, boxes, units, unitmap, peermap, verbose=verbose, callback=callback)
         return sudoku
@@ -68,7 +84,12 @@ class Sudoku(object):
     def display(self):
         Sudoku.__print__(self.__valuemap__, self.__boxes__)
         
-    def solve(self, callback=None):
+    def solve(self):
+        """
+        Solve the sudoku puzzle and update valuemap
+        Input: Nothing
+        Output: New valuemap (if succeeded) else False
+        """
         print ("Solving...")
         valuemap = self.__valuemap__.copy()
         result = self.__search__(valuemap)
@@ -94,6 +115,15 @@ class Sudoku(object):
         return
 
     def __assign__(self, valuemap, box, value):
+        """
+        Assigns the given value to valuemap[box] and
+        invokes the saved callback handler if it exists
+        and if there is an actual change being made.
+        Input:  The sudoku in dictionary form
+                The box whose value is to be updated
+                The value to be set
+        Output: None
+        """
         if not valuemap[box] == value:
             valuemap[box] = value
             if self.__callback__:
@@ -101,6 +131,11 @@ class Sudoku(object):
         
     @staticmethod
     def __cross__(a, b):
+        """
+        Create a list of nXm combinations 
+        Input: 2 lists
+        Output: List of combinations
+        """
         return [s+t for s in a for t in b]
 
     @staticmethod
@@ -196,7 +231,7 @@ class Sudoku(object):
         return valuemap
 
     def __search__(self, valuemap):
-        "Using depth-first search and propagation, try all possible valuemap."
+        "Using depth-first search and propagation, try all possible values."
         boxes = self.__boxes__
         # First, reduce the puzzle using the previous function
         valuemap = self.__constraint_propagation__(valuemap)
